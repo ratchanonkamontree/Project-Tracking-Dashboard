@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Project Tracker - Fixed Table</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* PANTONE Powdered Pastels Palette */
+        :root {
+            --pastel-bg: #F9F8F6;
+            --pastel-blue: #A0D2EB; 
+            --pastel-pink: #F7CED7; 
+            --pastel-green: #B8E8D4; 
+            --pastel-purple: #D6CDEA; 
+            --pastel-yellow: #FBE7C6; 
+            --pastel-peach: #F9C3B6; 
+            --primary-dark: #2D3748;
+        }
+
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--pastel-bg);
+            color: #4A4A4A;
+            background-image: radial-gradient(#E5E5E5 1.5px, transparent 1.5px);
+            background-size: 32px 32px;
+            overflow: hidden;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #D1D5DB; border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #9CA3AF; }
+
+        /* Components */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.03);
+            border-radius: 24px;
+        }
+
+        .nav-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            font-weight: 600;
+            color: #8E8E8E;
+            border-radius: 16px;
+        }
+        .nav-btn:hover { color: var(--primary-dark); background-color: rgba(255,255,255,0.8); }
+        .nav-btn.active { background-color: #ffffff; color: var(--primary-dark); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .nav-btn.active::before {
+            content: ''; position: absolute; left: 0; top: 15%; bottom: 15%; width: 4px;
+            background: var(--pastel-blue); border-radius: 0 4px 4px 0;
+        }
+
+        .card-pastel {
+            border-radius: 24px; background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: all 0.4s;
+            position: relative; overflow: hidden;
+        }
+        .card-pastel:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 40px -5px rgba(0,0,0,0.08); }
+
+        .excel-grid th { background-color: #FAFAFA; color: #8E8E8E; font-weight: 700; text-transform: uppercase; font-size: 0.7rem; border-bottom: 1px solid #EBEBEB; position: sticky; top: 0; z-index: 10; padding: 16px; }
+        .excel-grid td { border-bottom: 1px solid #F3F3F3; background-color: #ffffff; padding: 0; }
+        .excel-cell-content { padding: 12px 16px; font-size: 0.9rem; display: flex; align-items: center; }
+
+        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .input-pastel { background-color: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 14px; transition: all 0.3s; color: #555; font-weight: 500; }
+        .input-pastel:focus { background-color: #fff; border-color: var(--pastel-blue); box-shadow: 0 0 0 4px rgba(160, 210, 235, 0.25); outline: none; }
+        
+        .metric-box { background: white; border-radius: 16px; border: 1px solid #F5F5F5; padding: 12px 16px; display: flex; flex-direction: column; align-items: center; }
+    </style>
+</head>
+<body class="overflow-hidden relative">
+
+    <div class="absolute w-[500px] h-[500px] bg-[#A0D2EB] rounded-full blur-[80px] opacity-40 top-[-100px] left-[-100px] -z-10 animate-pulse"></div>
+    <div class="absolute w-[400px] h-[400px] bg-[#F7CED7] rounded-full blur-[80px] opacity-40 bottom-[-50px] right-[-50px] -z-10 animate-pulse" style="animation-delay: 2s;"></div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-[#FDFBF7]/80 backdrop-blur-sm">
+        <div class="glass-panel p-12 w-full max-w-md relative z-10 fade-in border-white/50 shadow-2xl">
+            <div class="flex flex-col items-center mb-10">
+                <div class="w-24 h-24 mb-6 rounded-[24px] shadow-xl bg-white flex items-center justify-center text-4xl">🚀</div>
+                <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Welcome</h1>
+                <p class="text-slate-400 font-medium mt-2">Sign in to Project Tracker</p>
+            </div>
+            <form id="login-form" class="space-y-6">
+                <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 pl-1">Username</label><input type="text" id="username" class="input-pastel w-full p-3.5" placeholder="Enter Username"></div>
+                <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 pl-1">Password</label><input type="password" id="password" class="input-pastel w-full p-3.5" placeholder="Enter Password"></div>
+                <button type="submit" class="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 mt-4"><span>Sign In</span> <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-container" class="h-screen flex flex-col md:flex-row overflow-hidden hidden relative z-10">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-[280px] glass-panel m-4 rounded-[32px] flex-shrink-0 hidden md:flex flex-col z-30 relative border-white/60 shadow-xl">
+            <div class="p-8 pb-4">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-white font-bold text-xl">P</div>
+                    <div><h1 class="text-lg font-extrabold text-slate-800 leading-none">Project</h1><span class="text-xs font-semibold text-slate-400">Manager</span></div>
+                </div>
+                <div id="status-badge" class="px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl flex items-center gap-3 shadow-sm transition-colors">
+                    <span class="relative flex h-2.5 w-2.5"><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-400"></span></span>
+                    <span class="text-[11px] font-bold text-slate-600">Connecting...</span>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-6 space-y-1 overflow-y-auto custom-scrollbar">
+                <div class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4 mt-2 px-2">Main Menu</div>
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 mb-1 text-sm group"><i data-lucide="pie-chart" class="w-5 h-5"></i> Dashboard</button>
+                <button onclick="switchTab('list'); filterByType(null)" id="nav-list" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 mb-1 text-sm group"><i data-lucide="database" class="w-5 h-5"></i> Master Data</button>
+                <button onclick="switchTab('add')" id="nav-add" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 mb-6 text-sm group"><i data-lucide="plus-circle" class="w-5 h-5"></i> New Entry</button>
+                <div class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4 px-2 flex justify-between"><span>Workbooks</span> <i data-lucide="folder-open" class="w-3 h-3 text-slate-300"></i></div>
+                <div id="project-nav-container" class="space-y-1"></div>
+            </nav>
+
+            <div class="p-6 mt-auto">
+                <button onclick="fetchData()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white py-3.5 rounded-2xl text-xs font-bold shadow-lg group transition-all"><i data-lucide="rotate-cw" id="sync-icon" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-700"></i> Sync Data</button>
+                <div class="flex justify-between items-center mt-4 pt-4 border-t border-slate-100">
+                    <button onclick="logout()" class="text-[10px] font-bold text-rose-400 hover:text-rose-600 flex items-center gap-1 w-full justify-center"><i data-lucide="log-out" class="w-3 h-3"></i> Logout</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+            <!-- Mobile Header -->
+            <div class="md:hidden bg-white/80 backdrop-blur-md border-b border-slate-100 p-4 flex justify-between items-center sticky top-0 z-50">
+                <span class="font-bold text-slate-700">Tracker App</span>
+                <div class="flex gap-2">
+                    <button onclick="switchTab('list')" class="p-2 bg-slate-50 rounded-lg"><i data-lucide="database" class="w-5 h-5 text-slate-600"></i></button>
+                    <button onclick="switchTab('dashboard')" class="p-2 bg-slate-50 rounded-lg"><i data-lucide="pie-chart" class="w-5 h-5 text-slate-600"></i></button>
+                </div>
+            </div>
+
+            <!-- Toast -->
+            <div id="status-bar" class="absolute top-6 left-1/2 transform -translate-x-1/2 z-[60] transition-all duration-500 opacity-0 pointer-events-none -translate-y-full">
+                <div class="bg-slate-800/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 text-xs font-bold border border-white/10">
+                    <div id="status-spinner" class="w-2 h-2 rounded-full bg-[#B8E8D4] shadow-[0_0_10px_#B8E8D4]"></div>
+                    <span id="status-text">Synced successfully</span>
+                </div>
+            </div>
+            
+            <!-- Error Banner -->
+            <div id="error-banner" class="hidden absolute top-6 left-1/2 transform -translate-x-1/2 z-[70] w-[90%] max-w-2xl">
+                <div class="bg-rose-50 border border-rose-200 text-rose-700 px-6 py-4 rounded-2xl shadow-2xl flex flex-col gap-3">
+                    <div class="flex items-center gap-2 font-bold text-sm uppercase tracking-wide"><i data-lucide="alert-triangle" class="w-5 h-5"></i> Connection Error</div>
+                    <p class="text-xs" id="error-message">Cannot connect to Google Sheet.</p>
+                    <div class="flex gap-2">
+                        <a href="#" id="debug-link" target="_blank" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-600 text-xs font-bold rounded-xl flex items-center gap-2"><i data-lucide="external-link" class="w-3 h-3"></i> API</a>
+                        <button onclick="fetchData()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-2"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Retry</button>
+                    </div>
+                    <button onclick="document.getElementById('error-banner').classList.add('hidden')" class="absolute top-2 right-2 p-2 hover:bg-rose-100 rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 custom-scrollbar">
+                
+                <div id="loading-indicator" class="hidden fixed bottom-8 right-8 bg-white/90 backdrop-blur-xl text-slate-600 px-6 py-4 rounded-2xl shadow-xl flex items-center gap-4 z-[70] border border-white fade-in">
+                    <div class="relative w-5 h-5">
+                        <div class="absolute inset-0 border-2 border-slate-100 rounded-full"></div>
+                        <div class="absolute inset-0 border-2 border-t-[#A0D2EB] rounded-full animate-spin"></div>
+                    </div>
+                    <span class="text-xs font-bold uppercase tracking-wider">Syncing...</span>
+                </div>
+
+                <!-- 1. DASHBOARD -->
+                <div id="view-dashboard" class="view-section fade-in hidden max-w-[1800px] mx-auto pb-10">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 mb-10 fade-in stagger-1">
+                        <div>
+                            <h2 class="text-4xl font-black text-slate-800 tracking-tight leading-none mb-2">Dashboard</h2>
+                            <p class="text-slate-400 font-medium">Real-time project insights & analytics.</p>
+                        </div>
+                        <div class="flex items-center gap-3 bg-white/80 p-1.5 rounded-2xl shadow-sm border border-slate-100">
+                            <div class="relative"><i data-lucide="filter" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300"></i><select id="dash-filter" onchange="handleDashboardFilterChange(this.value)" class="appearance-none bg-transparent pl-10 pr-10 py-2.5 rounded-xl text-sm font-bold text-slate-600 focus:outline-none hover:bg-slate-50 cursor-pointer"><option value="">All Projects</option></select></div>
+                            <div class="bg-slate-800 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg"><span id="dash-total-count">0</span> Total</div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-10 fade-in stagger-2">
+                        <div class="card-pastel p-6 group bg-gradient-to-br from-white to-blue-50/30">
+                            <div class="flex justify-between mb-6"><div class="w-12 h-12 rounded-2xl bg-blue-100/50 flex items-center justify-center text-blue-500"><i data-lucide="layers" class="w-6 h-6"></i></div><span class="text-xs font-bold text-slate-400 uppercase">Total</span></div>
+                            <h3 id="stat-total" class="text-4xl font-black text-slate-800 mb-1">0</h3><p class="text-xs font-bold text-slate-400">All Projects</p>
+                        </div>
+                        <div class="card-pastel p-6 group bg-gradient-to-br from-white to-purple-50/30">
+                            <div class="flex justify-between mb-6"><div class="w-12 h-12 rounded-2xl bg-purple-100/50 flex items-center justify-center text-purple-600"><i data-lucide="wallet" class="w-6 h-6"></i></div><span class="text-xs font-bold text-slate-400 uppercase">Plan</span></div>
+                            <h3 id="stat-budget" class="text-3xl font-black text-slate-800 mb-1">฿0</h3><p class="text-xs font-bold text-slate-400">PBOQ Cost</p>
+                        </div>
+                         <div class="card-pastel p-6 group bg-gradient-to-br from-white to-pink-50/30">
+                            <div class="flex justify-between mb-6"><div class="w-12 h-12 rounded-2xl bg-pink-100/50 flex items-center justify-center text-pink-600"><i data-lucide="banknote" class="w-6 h-6"></i></div><span class="text-xs font-bold text-slate-400 uppercase">Actual</span></div>
+                            <h3 id="stat-fboq" class="text-3xl font-black text-slate-800 mb-1">฿0</h3><p class="text-xs font-bold text-slate-400">FBOQ Cost</p>
+                        </div>
+                         <div class="card-pastel p-6 group bg-gradient-to-br from-white to-green-50/30">
+                            <div class="flex justify-between mb-6"><div class="w-12 h-12 rounded-2xl bg-green-100/50 flex items-center justify-center text-green-600"><i data-lucide="check-circle-2" class="w-6 h-6"></i></div><span class="text-xs font-bold text-slate-400 uppercase">Done</span></div>
+                            <h3 id="stat-completed" class="text-4xl font-black text-slate-800 mb-1">0</h3><p class="text-xs font-bold text-slate-400">Delivered</p>
+                        </div>
+                        <div class="card-pastel p-6 group bg-gradient-to-br from-white to-orange-50/30">
+                            <div class="flex justify-between mb-6"><div class="w-12 h-12 rounded-2xl bg-orange-100/50 flex items-center justify-center text-orange-600"><i data-lucide="activity" class="w-6 h-6"></i></div><span class="text-xs font-bold text-slate-400 uppercase">WIP</span></div>
+                            <h3 id="stat-active" class="text-4xl font-black text-slate-800 mb-1">0</h3><p class="text-xs font-bold text-slate-400">Active Tasks</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts & Breakdown -->
+                    <div class="grid grid-cols-1 xl:grid-cols-4 gap-8 mb-10 fade-in stagger-3">
+                        <div class="xl:col-span-1 card-pastel p-8 flex flex-col relative overflow-hidden">
+                             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
+                            <h4 class="font-bold text-xl text-slate-800 mb-6 flex items-center gap-3"><span class="bg-indigo-50 p-2 rounded-xl text-indigo-600"><i data-lucide="globe" class="w-5 h-5"></i></span> Regional Load</h4>
+                            <div class="flex-1 min-h-[300px] relative flex items-center justify-center"><canvas id="regionChart"></canvas></div>
+                        </div>
+
+                        <div class="xl:col-span-3 card-pastel p-8 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-slate-200 to-slate-300"></div>
+                            <div class="flex justify-between items-center mb-8">
+                                <h4 class="font-bold text-xl text-slate-800 flex items-center gap-3"><span class="bg-slate-100 p-2 rounded-xl text-slate-600"><i data-lucide="layout-list" class="w-5 h-5"></i></span> Project Breakdown</h4>
+                            </div>
+                            <!-- Updated container for breakdown cards -->
+                            <div id="project-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. LIST VIEW -->
+                <div id="view-list" class="view-section fade-in hidden h-full flex flex-col max-w-[1920px] mx-auto">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 px-1">
+                        <div>
+                            <h2 class="text-3xl font-black text-slate-800 flex items-center gap-3" id="list-title">
+                                <div class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-white shadow-lg"><i data-lucide="database" class="w-5 h-5"></i></div>
+                                <span>Master Data</span>
+                            </h2>
+                        </div>
+                        
+                        <div id="sheet-summary-stats" class="hidden grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto">
+                             <div class="metric-box border-l-4 border-l-blue-400"><span class="metric-label">Total Jobs</span><span id="sheet-total-count" class="metric-value">0</span></div>
+                             <div class="metric-box border-l-4 border-l-slate-400"><span class="metric-label">W.Orders</span><span id="sheet-wo-count" class="metric-value">0</span></div>
+                             <div class="metric-box border-l-4 border-l-purple-400"><span class="metric-label">PBOQ</span><span id="sheet-pboq" class="metric-value text-purple-600">฿0</span></div>
+                             <div class="metric-box border-l-4 border-l-pink-400"><span class="metric-label">FBOQ</span><span id="sheet-fboq" class="metric-value text-pink-500">฿0</span></div>
+                        </div>
+                        
+                        <div class="relative w-full md:w-64">
+                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                            <input type="text" id="search-input" onkeyup="renderTable()" placeholder="Search data..." class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:outline-none focus:border-slate-400 transition-colors shadow-sm">
+                        </div>
+                    </div>
+                    
+                    <div id="sheet-status-breakdown-container" class="hidden mb-4 px-1">
+                        <div class="bg-white/50 border border-white p-3 rounded-2xl flex items-center gap-4 overflow-x-auto custom-scrollbar">
+                             <div id="sheet-status-breakdown" class="flex items-center gap-4 min-w-max px-2"></div>
+                        </div>
+                    </div>
+
+                    <div class="modern-panel flex-1 overflow-hidden flex flex-col relative mb-4 bg-white">
+                        <div class="overflow-auto flex-1 custom-scrollbar relative">
+                            <table class="w-full text-sm excel-grid min-w-[1400px]">
+                                <thead class="bg-slate-50 sticky top-0 z-20"><tr id="table-header-row"></tr></thead>
+                                <tbody id="table-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center text-xs font-bold text-slate-400 px-6">
+                            <span class="flex items-center gap-2"><i data-lucide="eye" class="w-3 h-3"></i> View Only</span>
+                            <span id="row-count">0 Rows</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. ADD FORM VIEW -->
+                <div id="view-add" class="view-section fade-in hidden max-w-4xl mx-auto pb-10">
+                   <div class="card-pastel p-10 relative overflow-hidden">
+                       <div class="flex items-center gap-5 mb-10 relative z-10">
+                            <div class="bg-slate-800 p-4 rounded-2xl shadow-xl text-white"><i data-lucide="file-plus-2" class="w-8 h-8"></i></div>
+                            <div><h2 class="text-3xl font-black text-slate-800 tracking-tight">New Project</h2><p class="text-slate-400 font-medium">Add a record to the centralized database.</p></div>
+                       </div>
+
+                       <form id="add-form" class="grid grid-cols-12 gap-6 relative z-10" onsubmit="handleFormSubmit(event)">
+                            <div class="col-span-12 border-b border-slate-100 pb-2 mb-2"><h3 class="font-bold text-sm text-slate-400 uppercase tracking-widest flex items-center gap-2"><span class="w-2 h-2 bg-emerald-400 rounded-full"></span> Core Information</h3></div>
+                            
+                            <div class="col-span-12 md:col-span-2 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">CCT NO</label><input id="input-cct" readonly class="input-pastel w-full p-3 bg-slate-100 text-slate-400 cursor-not-allowed"></div>
+                            <div class="col-span-12 md:col-span-2 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Year</label><div class="relative"><select id="input-year" class="input-pastel w-full p-3 appearance-none"></select></div></div>
+                            <div class="col-span-12 md:col-span-4 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Type</label><div class="relative"><select id="input-type" class="input-pastel w-full p-3 appearance-none"></select></div></div>
+                            <div class="col-span-12 md:col-span-2 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Region</label><input id="input-region" list="regions-list" class="input-pastel w-full p-3" placeholder="Select..."><datalist id="regions-list"><option value="NOE1"><option value="NOE2"><option value="EAST"><option value="NOE"></datalist></div>
+                            <div class="col-span-12 md:col-span-2 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Status</label><div class="relative"><select id="input-status" class="input-pastel w-full p-3 appearance-none"></select></div></div>
+                            <div class="col-span-12 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Project Name</label><input id="input-name" required class="input-pastel w-full p-3" placeholder="Enter full project name..."></div>
+
+                            <div class="col-span-12 border-b border-slate-100 pb-2 mb-2 mt-4"><h3 class="font-bold text-sm text-slate-400 uppercase tracking-widest flex items-center gap-2"><span class="w-2 h-2 bg-purple-400 rounded-full"></span> Financials</h3></div>
+                            <div class="col-span-12 md:col-span-3 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">PBOQ</label><input type="number" id="input-pboq" class="input-pastel w-full p-3 font-mono text-purple-600"></div>
+                            <div class="col-span-12 md:col-span-3 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">FBOQ</label><input type="number" id="input-fboq" class="input-pastel w-full p-3 font-mono text-pink-500"></div>
+                            <div class="col-span-12 md:col-span-3 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Work Order</label><input id="input-wo" class="input-pastel w-full p-3"></div>
+                            <div class="col-span-12 md:col-span-3 space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">PO No</label><input id="input-po" class="input-pastel w-full p-3"></div>
+                           
+                           <div class="col-span-full mt-6 pt-6 border-t border-slate-100 flex justify-end gap-3">
+                               <button type="button" onclick="switchTab('list')" class="px-6 py-3 rounded-xl text-slate-400 font-bold hover:bg-slate-50 transition-colors text-sm">Cancel</button>
+                               <button type="submit" class="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 text-sm">
+                                    <i data-lucide="save" class="w-4 h-4"></i> Save Record
+                                </button>
+                           </div>
+                       </form>
+                   </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- PROJECT DETAIL MODAL -->
+        <div id="project-modal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="fixed inset-0 bg-white/60 backdrop-blur-md transition-opacity" onclick="closeProjectModal()"></div>
+            <div class="fixed inset-0 z-10 overflow-y-auto">
+                <div class="flex min-h-full items-center justify-center p-4">
+                    <div class="glass-panel p-0 w-full max-w-7xl relative overflow-hidden modal-enter scale-in !border-white !bg-white/95 shadow-2xl">
+                        <div class="bg-white/50 px-6 py-5 border-b border-slate-100 flex justify-between items-center sticky top-0 z-20 backdrop-blur">
+                            <div><h3 class="text-xl font-black text-slate-800" id="modal-title"></h3><p class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-0.5">Project Details</p></div>
+                            <button onclick="closeProjectModal()" class="p-2 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <div class="px-6 py-6 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="modal-stats"></div>
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="lg:col-span-1 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm h-full overflow-hidden flex flex-col">
+                                    <h4 class="text-[10px] font-extrabold text-slate-400 mb-3 uppercase tracking-widest">Status Breakdown</h4>
+                                    <div class="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1" id="modal-status-bars"></div>
+                                </div>
+                                <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-[500px]">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h4 class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Entry List</h4>
+                                        <select id="modal-status-filter" onchange="filterModalTable()" class="bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold rounded-lg px-2 py-1 outline-none focus:border-blue-300">
+                                            <option value="">All Statuses</option>
+                                        </select>
+                                    </div>
+                                    <div class="overflow-hidden rounded-xl border border-slate-100 flex-1 relative">
+                                        <div class="absolute inset-0 overflow-y-auto custom-scrollbar">
+                                            <table class="min-w-full divide-y divide-slate-100">
+                                                <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                                    <tr>
+                                                        <th class="px-4 py-3 text-left text-[10px] font-extrabold text-slate-400 uppercase w-24">CCT</th>
+                                                        <th class="px-4 py-3 text-left text-[10px] font-extrabold text-slate-400 uppercase">Name</th>
+                                                        <th class="px-4 py-3 text-center text-[10px] font-extrabold text-slate-400 uppercase w-16">Drive</th>
+                                                        <th class="px-4 py-3 text-right text-[10px] font-extrabold text-slate-400 uppercase w-32">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="text-sm text-slate-600 divide-y divide-slate-100" id="modal-table-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // --- CONFIGURATION ---
+            const API_URL = "https://script.google.com/macros/s/AKfycbxqxgoM15CIhJTF5Uk3CHB1Fkpd6zkKaVbmhtXuDr3aHAgT0Ux7v_L407anOpSeFUfd/exec"; 
+            const APP_USERNAME = "AdminCCT"; 
+            const APP_PASSWORD = "CCT12345";
+            
+            const PROJECT_TYPES = ["RAUG", "IMPROVE", "Closeloop", "MOBILE", "Online", "Event", "Battery", "CM Site"];
+            const STATUS_OPTIONS = ["Assign", "Wait Survey", "Surveyed", "Wait GATE", "GATE REJECT", "PASS GATE", "Lay OFC", "Wait CUT OFC", "Wait PAT", "Cancel", "Completed", "RE GATE"];
+            
+            const STATUS_COLORS = { 
+                'Completed': '#10B981', 'Assign': '#64748B', 'Wait Survey': '#F59E0B', 'Surveyed': '#D97706', 'Wait GATE': '#8B5CF6', 
+                'GATE REJECT': '#EF4444', 'PASS GATE': '#3B82F6', 'Lay OFC': '#0EA5E9', 'Wait CUT OFC': '#6366F1', 'Wait PAT': '#EC4899', 
+                'Cancel': '#94A3B8', 'RE GATE': '#F43F5E' 
+            };
+
+            let tableColumns = [
+                { key: 'cctNo', label: 'CCT No', width: '100px' },
+                { key: 'year', label: 'Year', width: '60px' },
+                { key: 'subRegion', label: 'Sub Region', width: '80px' },
+                { key: 'googleDrive', label: 'Drive', width: '80px', type: 'link' },
+                { key: 'project', label: 'Project', width: '100px' },
+                { key: 'projectName', label: 'Project Name', width: '250px' },
+                { key: 'lastStatus', label: 'Last Status', width: '120px', type: 'status' },
+                { key: 'workOrder', label: 'Work Order', width: '100px' },
+                { key: 'poNo', label: 'PO No.', width: '100px' },
+                { key: 'pboq', label: 'PBOQ', width: '90px', type: 'number' },
+                { key: 'fboq', label: 'FBOQ', width: '90px', type: 'number' }
+            ];
+
+            let globalData = [];
+            let currentFilterType = null;
+            let dashboardFilterType = "";
+            let charts = { region: null };
+            let currentModalProjectType = null;
+
+            document.addEventListener('DOMContentLoaded', () => {
+                lucide.createIcons();
+                initSidebar();
+                initFormDropdowns();
+                initDashboardFilter();
+                checkSession();
+                const debugLink = document.getElementById('debug-link');
+                if(debugLink) debugLink.href = API_URL;
+            });
+
+            // --- AUTH ---
+            function checkSession() {
+                if (localStorage.getItem('isLoggedIn') === 'true') {
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('app-container').classList.remove('hidden');
+                    switchTab('dashboard'); 
+                    fetchData(); 
+                } else {
+                    document.getElementById('login-screen').classList.remove('hidden');
+                    document.getElementById('app-container').classList.add('hidden');
+                }
+            }
+            document.getElementById('login-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const u = document.getElementById('username').value;
+                const p = document.getElementById('password').value;
+                if (u === APP_USERNAME && p === APP_PASSWORD) {
+                    localStorage.setItem('isLoggedIn', 'true');
+                    checkSession();
+                } else {
+                    alert('Invalid Username or Password');
+                }
+            });
+            function logout() { localStorage.removeItem('isLoggedIn'); location.reload(); }
+
+            // --- DATA LOGIC ---
+            function normalizeData(raw) {
+                return raw.map((item, idx) => ({
+                    id: item.id || Date.now() + idx,
+                    cctNo: item.cctNo ? item.cctNo.toString().trim() : '',
+                    year: item.year ? item.year.toString().trim() : '',
+                    project: item.project ? item.project.toString().trim() : '',
+                    projectName: item.projectName ? item.projectName.toString().trim() : '',
+                    subRegion: item.subRegion ? item.subRegion.toString().trim() : '',
+                    lastStatus: item.lastStatus ? item.lastStatus.toString().trim() : '',
+                    pboq: item.pboq || 0,
+                    fboq: item.fboq || 0,
+                    workOrder: item.workOrder ? item.workOrder.toString().trim() : '',
+                    poNo: item.poNo ? item.poNo.toString().trim() : '',
+                    googleDrive: item.googleDrive ? item.googleDrive.toString().trim() : ''
+                }));
+            }
+
+            function getDashboardData() {
+                return dashboardFilterType ? globalData.filter(d => (d.project || '').toLowerCase() === dashboardFilterType.toLowerCase()) : globalData;
+            }
+
+            async function fetchData() {
+                const loader = document.getElementById('loading-indicator');
+                const badge = document.getElementById('status-badge');
+                document.getElementById('error-banner').classList.add('hidden');
+
+                if (loader) loader.classList.remove('hidden');
+                if (badge) badge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span><span class="text-[10px] font-bold text-amber-600">Connecting...</span>`;
+                
+                try {
+                    const targetUrl = `${API_URL}?action=read&t=${Date.now()}`;
+                    const res = await fetch(targetUrl, { method: "GET", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" } });
+                    
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    const json = await res.json();
+                    
+                    if(Array.isArray(json)) { 
+                        globalData = normalizeData(json); 
+                        renderTable(); 
+                        updateStats(); 
+                        if (badge) {
+                            badge.className = "px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2.5 shadow-sm transition-colors";
+                            badge.innerHTML = `<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span><span class="text-[10px] font-bold text-emerald-600">System Online</span>`;
+                        }
+                    } else { throw new Error("Invalid Data Format"); }
+                } catch(e) { 
+                    console.error("Connection Failed:", e);
+                    showErrorBanner(`Connection Failed: ${e.message}`);
+                    if (badge) {
+                         badge.className = "px-3 py-2.5 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2.5 shadow-sm transition-colors";
+                         badge.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span></span><span class="text-[10px] font-bold text-rose-600">Offline</span>`;
+                    }
+                } finally { if (loader) loader.classList.add('hidden'); }
+            }
+
+            // --- SAVING ---
+            async function handleFormSubmit(e) {
+                e.preventDefault();
+                showSavingStatus(true);
+                const newItem = {
+                    id: Date.now(), 
+                    cctNo: document.getElementById('input-cct').value,
+                    year: document.getElementById('input-year').value,
+                    project: document.getElementById('input-type').value,
+                    projectName: document.getElementById('input-name').value,
+                    subRegion: document.getElementById('input-region').value,
+                    lastStatus: document.getElementById('input-status').value,
+                    workOrder: document.getElementById('input-wo').value,
+                    poNo: document.getElementById('input-po').value,
+                    pboq: document.getElementById('input-pboq').value || 0,
+                    fboq: document.getElementById('input-fboq').value || 0,
+                    googleDrive: 'Generating...', 
+                    action: 'create'
+                };
+                globalData.unshift(newItem);
+                switchTab('list');
+                filterByType(null);
+                renderTable(); 
+                e.target.reset();
+                await saveRowToSheet(newItem);
+            }
+
+            async function saveRowToSheet(row) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST', body: JSON.stringify(row), redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }
+                    });
+                    try {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            const localItem = globalData.find(d => d.id === row.id);
+                            if(localItem && result.driveLink) { localItem.googleDrive = result.driveLink; renderTable(); }
+                            showSavingStatus(false);
+                            return;
+                        }
+                    } catch (jsonErr) { console.warn("Non-JSON response (likely CORS)", jsonErr); showSavingStatus(false); return; }
+                    throw new Error('Save failed');
+                } catch(e) { console.error(e); showErrorBanner("Save Failed. Check network connection."); }
+            }
+
+            // --- RENDER ---
+            function renderTable() {
+                const tbody = document.getElementById('table-body');
+                const thead = document.getElementById('table-header-row');
+                tbody.innerHTML = ''; thead.innerHTML = '';
+                tableColumns.filter(c => !currentFilterType || c.key !== 'project').forEach(col => {
+                    thead.innerHTML += `<th class="px-4 py-4 text-left font-extrabold text-[11px] uppercase tracking-wider text-slate-400 whitespace-nowrap bg-slate-50/80 select-none border-b border-r border-slate-100" style="width:${col.width}">${col.label}</th>`;
+                });
+                const search = document.getElementById('search-input').value.toLowerCase();
+                const filteredData = globalData.filter(d => (!currentFilterType || (d.project||'').toLowerCase() === currentFilterType.toLowerCase()) && (!search || JSON.stringify(d).toLowerCase().includes(search)));
+                document.getElementById('row-count').innerText = `${filteredData.length} Rows`;
+                updateSheetStats(filteredData); 
+                if (filteredData.length === 0) { tbody.innerHTML = `<tr><td colspan="10" class="text-center py-20 text-slate-400 italic">No data found.</td></tr>`; return; }
+                filteredData.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors group border-b border-slate-50";
+                    tableColumns.filter(c => !currentFilterType || c.key !== 'project').forEach(col => {
+                        let html = '';
+                        const val = item[col.key] || '';
+                        if (col.type === 'link') {
+                            if (val && val.startsWith('http')) html = `<a href="${val}" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"><i data-lucide="folder" class="w-3.5 h-3.5"></i></a>`;
+                            else if (val === 'Generating...') html = `<span class="text-xs text-amber-500 font-bold animate-pulse">Wait...</span>`;
+                            else html = `<span class="text-slate-300">-</span>`;
+                        } else if (col.type === 'status') {
+                             const colorKey = Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === val.toLowerCase());
+                             const color = STATUS_COLORS[val] || STATUS_COLORS[colorKey] || '#64748B';
+                             html = `<span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border" style="color:${color}; background-color:${color}10; border-color:${color}20">${val}</span>`;
+                        } else if (col.type === 'number') html = `<span class="font-mono font-medium text-slate-600">${val.toLocaleString()}</span>`;
+                        else html = `<span class="font-medium text-slate-600 truncate block" style="max-width:${parseInt(col.width)-20}px">${val}</span>`;
+                        
+                        tr.innerHTML += `<td class="p-0"><div class="excel-cell-content ${col.type==='number'?'justify-end':''} ${col.type==='link'?'justify-center':''}">${html}</div></td>`;
+                    });
+                    tbody.appendChild(tr);
+                });
+                lucide.createIcons();
+            }
+
+            function updateSheetStats(data) {
+                const sumPBOQ = data.reduce((s,d)=>s+(parseFloat(d.pboq)||0),0);
+                const sumFBOQ = data.reduce((s,d)=>s+(parseFloat(d.fboq)||0),0);
+                document.getElementById('sheet-pboq').innerText = `฿${formatCurrency(sumPBOQ)}`;
+                document.getElementById('sheet-fboq').innerText = `฿${formatCurrency(sumFBOQ)}`;
+                document.getElementById('sheet-total-count').innerText = data.length;
+                document.getElementById('sheet-wo-count').innerText = data.filter(d => d.workOrder).length;
+                if(currentFilterType) renderSheetStatusBreakdown(data);
+            }
+
+             function renderSheetStatusBreakdown(data) {
+                 const statusCounts = {};
+                 data.forEach(d => { let st = (d.lastStatus || '').trim(); const match = STATUS_OPTIONS.find(opt => opt.toLowerCase() === st.toLowerCase()); if(match) st = match; else if(!st) st = 'Unknown'; statusCounts[st] = (statusCounts[st] || 0) + 1; });
+                 const activeStatuses = Object.keys(statusCounts).filter(s => statusCounts[s] > 0);
+                 document.getElementById('sheet-status-breakdown').innerHTML = activeStatuses.length ? activeStatuses.map(s => {
+                    const colorKey = Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === s.toLowerCase());
+                    const color = STATUS_COLORS[s] || STATUS_COLORS[colorKey] || '#cbd5e1';
+                    return `<div class="flex items-center gap-2 min-w-max bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm"><div class="w-2 h-2 rounded-full" style="background-color:${color}"></div><div class="flex flex-col leading-none"><span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">${s}</span><span class="text-xs font-black text-slate-700">${statusCounts[s]}</span></div></div>`;
+                 }).join('') : '<span class="text-xs text-slate-400 pl-2">No data available</span>';
+            }
+
+            // --- UTILS ---
+            function switchTab(id) {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+                const targetId = id.startsWith('project-') ? 'view-list' : `view-${id}`;
+                document.getElementById(targetId).classList.remove('hidden');
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                const activeBtn = document.getElementById(`nav-${id.startsWith('project-')?'list':id}`);
+                if(activeBtn) activeBtn.classList.add('active');
+                if (id === 'dashboard') { updateStats(); setTimeout(() => renderCharts(getDashboardData()), 100); }
+                else if (id === 'list') {
+                    currentFilterType = null; updateListTitle("Master Data");
+                    document.getElementById('sheet-summary-stats').classList.add('hidden');
+                    document.getElementById('sheet-status-breakdown-container').classList.add('hidden');
+                    renderTable();
+                } else if (id === 'add') { generateNextCCT(); }
+                else if (id.startsWith('project-')) {
+                    currentFilterType = id.replace('project-', '');
+                    updateListTitle(`${currentFilterType} Projects`);
+                    document.getElementById('sheet-summary-stats').classList.remove('hidden');
+                    document.getElementById('sheet-status-breakdown-container').classList.remove('hidden');
+                    renderTable();
+                }
+            }
+            
+            function updateListTitle(t) { document.getElementById('list-title').innerHTML = `<div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white"><i data-lucide="folder-open" class="w-4 h-4"></i></div> ${t}`; lucide.createIcons(); }
+            function initSidebar() {
+                const c = document.getElementById('project-nav-container'); c.innerHTML = '';
+                PROJECT_TYPES.forEach(t => {
+                    c.innerHTML += `<button onclick="switchTab('project-${t}')" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors rounded-lg group"><i data-lucide="hash" class="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500"></i> ${t}</button>`;
+                });
+            }
+            function filterByType(t) { if(t) switchTab(`project-${t}`); else switchTab('list'); }
+            function formatCurrency(v) { if(v>=1000000) return (v/1000000).toFixed(2)+'M'; if(v>=1000) return (v/1000).toFixed(1)+'K'; return v.toLocaleString(); }
+            
+            function initFormDropdowns() {
+                const ts = document.getElementById('input-type'); PROJECT_TYPES.forEach(t=>ts.add(new Option(t,t)));
+                const ss = document.getElementById('input-status'); STATUS_OPTIONS.forEach(s=>ss.add(new Option(s,s)));
+                const ys = document.getElementById('input-year');
+                const yr = new Date().getFullYear();
+                [yr, yr+1].forEach(y => ys.add(new Option(y,y)));
+            }
+
+            function generateNextCCT() {
+                if(!globalData.length) { document.getElementById('input-cct').value = 'CCT0001'; return; }
+                const max = globalData.reduce((m, i) => { const match = (i.cctNo||'').match(/(\d+)$/); return match ? Math.max(m, parseInt(match[1])) : m; }, 0);
+                document.getElementById('input-cct').value = `CCT${String(max+1).padStart(4,'0')}`;
+            }
+
+            function showSavingStatus(isSaving) {
+                const bar = document.getElementById('status-bar');
+                const spinner = document.getElementById('status-spinner');
+                const text = document.getElementById('status-text');
+                bar.style.opacity = '1'; bar.style.transform = 'translate(-50%, 0)';
+                if(isSaving) {
+                    spinner.className = "w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_#FBBF24] animate-spin";
+                    text.innerText = "Saving changes...";
+                } else {
+                    spinner.className = "w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34D399]";
+                    text.innerText = "All changes saved";
+                    setTimeout(() => { bar.style.opacity = '0'; bar.style.transform = 'translate(-50%, -100%)'; }, 2000);
+                }
+            }
+            
+            function showErrorBanner(msg) {
+                const banner = document.getElementById('error-banner');
+                const text = document.getElementById('error-message');
+                banner.classList.remove('hidden');
+                text.innerText = msg;
+            }
+
+            function initDashboardFilter() { const s = document.getElementById('dash-filter'); PROJECT_TYPES.forEach(t => s.add(new Option(t,t))); }
+            function handleDashboardFilterChange(v) { dashboardFilterType = v; updateStats(); }
+            
+            function updateStats() {
+                const data = getDashboardData();
+                const completed = data.filter(d => d.lastStatus === 'Completed').length;
+                const pboq = data.reduce((s,d)=>s+(parseFloat(d.pboq)||0),0);
+                const fboq = data.reduce((s,d)=>s+(parseFloat(d.fboq)||0),0);
+                document.getElementById('dash-total-count').innerText = data.length;
+                document.getElementById('stat-total').innerText = data.length;
+                document.getElementById('stat-budget').innerText = `฿${formatCurrency(pboq)}`;
+                document.getElementById('stat-fboq').innerText = `฿${formatCurrency(fboq)}`;
+                document.getElementById('stat-completed').innerText = completed;
+                document.getElementById('stat-active').innerText = data.length - completed;
+                renderCharts(data);
+            }
+            
+            function renderCharts(data) {
+                if(!data) data = getDashboardData(); 
+                const regionCanvas = document.getElementById('regionChart');
+                if (!regionCanvas || !regionCanvas.offsetParent) return;
+
+                const container = document.getElementById('project-cards-container'); container.innerHTML = '';
+                const types = dashboardFilterType ? [dashboardFilterType] : PROJECT_TYPES;
+                types.forEach(t => {
+                    // Match Project Type robustly
+                    const tData = globalData.filter(d => (d.project || '').toString().trim().toLowerCase() === t.toLowerCase());
+                    
+                    // Show card even if 0 data (per user request)
+                    // if(!dashboardFilterType && tData.length === 0) return;
+                    
+                    const total = tData.length;
+                    const done = tData.filter(d => (d.lastStatus || '').trim().toLowerCase() === 'completed').length;
+                    const pct = total ? Math.round((done/total)*100) : 0;
+                    
+                    // --- Status Breakdown Logic ---
+                    const statusCounts = {};
+                    tData.forEach(d => { 
+                        let st = (d.lastStatus || '').trim();
+                        const match = STATUS_OPTIONS.find(opt => opt.toLowerCase() === st.toLowerCase());
+                        if(match) st = match; else if(!st) st = 'Unknown';
+                        statusCounts[st] = (statusCounts[st] || 0) + 1; 
+                    });
+                    
+                    const activeStatuses = Object.keys(statusCounts).filter(s => statusCounts[s] > 0).sort((a,b) => statusCounts[b] - statusCounts[a]);
+                    
+                    let statusRowsHTML = activeStatuses.length === 0 
+                        ? '<div class="text-xs text-slate-300 italic text-center py-4">No active projects</div>'
+                        : activeStatuses.map(status => { 
+                            const count = statusCounts[status];
+                            const barPct = total > 0 ? Math.round((count / total) * 100) : 0;
+                            const colorKey = Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === status.toLowerCase());
+                            const color = STATUS_COLORS[status] || STATUS_COLORS[colorKey] || '#cbd5e1';
+                            
+                            return `
+                                <div class="flex flex-col gap-1 mb-2">
+                                    <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                        <span>${status}</span>
+                                        <span class="bg-slate-100 text-slate-600 px-1.5 rounded">${count}</span>
+                                    </div>
+                                    <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                        <div class="h-full rounded-full" style="width: ${barPct}%; background-color: ${color}"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                    container.innerHTML += `
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 hover:-translate-y-1 transition-transform group cursor-pointer h-full flex flex-col" onclick="openProjectModal('${t}')">
+                            <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-50">
+                                <h4 class="font-bold text-slate-700 flex items-center gap-2">
+                                    <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-slate-800 group-hover:text-white transition-colors"><i data-lucide="folder" class="w-4 h-4"></i></span> ${t}
+                                </h4>
+                                <div class="flex flex-col items-end">
+                                    <span class="text-xs font-black text-slate-700">${total}</span>
+                                    <span class="text-[9px] font-bold text-emerald-500 uppercase tracking-wide">${pct}% Done</span>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                <div class="bg-purple-50 p-2 rounded-xl border border-purple-100">
+                                    <p class="text-[9px] font-bold text-purple-400 uppercase">PBOQ</p>
+                                    <p class="text-xs font-black text-purple-700">฿${formatCurrency(tData.reduce((s,d)=>s+(parseFloat(d.pboq)||0),0))}</p>
+                                </div>
+                                <div class="bg-pink-50 p-2 rounded-xl border border-pink-100">
+                                    <p class="text-[9px] font-bold text-pink-400 uppercase">FBOQ</p>
+                                    <p class="text-xs font-black text-pink-700">฿${formatCurrency(tData.reduce((s,d)=>s+(parseFloat(d.fboq)||0),0))}</p>
+                                </div>
+                            </div>
+
+                            <!-- Status List (Scrollable, Full) -->
+                            <div class="flex-1 space-y-1 overflow-y-auto custom-scrollbar pr-1 max-h-48">
+                                ${statusRowsHTML}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if(charts.region) charts.region.destroy();
+                const rCounts = {}; data.forEach(d => { if(d.subRegion) rCounts[d.subRegion] = (rCounts[d.subRegion]||0)+1; });
+                charts.region = new Chart(regionCanvas, {
+                    type: 'bar',
+                    data: { labels: Object.keys(rCounts), datasets: [{ data: Object.values(rCounts), backgroundColor: '#3B82F6', borderRadius: 8 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
+                });
+                lucide.createIcons();
+            }
+
+            function openProjectModal(t) {
+                currentModalProjectType = t; 
+                const data = globalData.filter(d => (d.project || '').toString().trim().toLowerCase() === t.toLowerCase());
+                document.getElementById('modal-title').innerText = t;
+                document.getElementById('modal-stats').innerHTML = `
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total</p><p class="text-lg font-black text-slate-700">${data.length}</p></div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Budget</p><p class="text-lg font-black text-purple-600">฿${formatCurrency(data.reduce((s,d)=>s+(parseFloat(d.pboq)||0),0))}</p></div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Actual</p><p class="text-lg font-black text-pink-600">฿${formatCurrency(data.reduce((s,d)=>s+(parseFloat(d.fboq)||0),0))}</p></div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center"><p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Orders</p><p class="text-lg font-black text-blue-600">${data.filter(d => d.workOrder).length}</p></div>
+                `;
+                
+                const statusCounts = {}; 
+                data.forEach(d => { 
+                    let st = (d.lastStatus || '').trim();
+                    const match = STATUS_OPTIONS.find(opt => opt.toLowerCase() === st.toLowerCase());
+                    if(match) st = match; else if(!st) st = 'Unknown';
+                    statusCounts[st] = (statusCounts[st] || 0) + 1; 
+                });
+                const total = data.length;
+                const activeStatuses = Object.keys(statusCounts).filter(s => statusCounts[s] > 0).sort((a,b) => statusCounts[b] - statusCounts[a]);
+
+                document.getElementById('modal-status-bars').innerHTML = activeStatuses.length > 0 ? activeStatuses.map(s => {
+                    const colorKey = Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === s.toLowerCase());
+                    const color = STATUS_COLORS[s] || STATUS_COLORS[colorKey] || '#cbd5e1';
+                    return `<div onclick="selectModalStatus('${s}')" class="flex items-center gap-3 text-xs group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100"><div class="w-24 font-bold text-slate-600 truncate text-right tracking-tight group-hover:text-slate-900 transition-colors">${s}</div><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200"><div class="h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style="width:${(statusCounts[s]/total)*100}%; background-color:${color}"></div></div><div class="w-6 text-right font-black text-slate-700">${statusCounts[s]}</div></div>`
+                }).join('') : '<div class="text-xs text-slate-300 italic text-center py-4">No active data</div>';
+
+                const modalFilter = document.getElementById('modal-status-filter');
+                modalFilter.innerHTML = '<option value="">All Statuses</option>';
+                const uniqueStatuses = [...new Set(data.map(d => d.lastStatus))].sort();
+                uniqueStatuses.forEach(s => { if(s) modalFilter.add(new Option(s, s)); });
+
+                filterModalTable(); 
+                document.getElementById('project-modal').classList.remove('hidden');
+                lucide.createIcons();
+            }
+
+            function selectModalStatus(status) {
+                const dropdown = document.getElementById('modal-status-filter');
+                dropdown.value = status;
+                filterModalTable();
+            }
+
+            function filterModalTable() {
+                const status = document.getElementById('modal-status-filter').value;
+                let data = globalData.filter(d => (d.project || '').toString().trim().toLowerCase() === currentModalProjectType.toLowerCase());
+                if (status) data = data.filter(d => d.lastStatus === status);
+
+                document.getElementById('modal-table-body').innerHTML = data.map(d => {
+                     const colorKey = Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === (d.lastStatus||'').toLowerCase());
+                     const color = STATUS_COLORS[d.lastStatus] || STATUS_COLORS[colorKey] || '#64748B';
+                     let driveHtml = d.googleDrive && d.googleDrive.startsWith('http') ? `<a href="${d.googleDrive}" target="_blank" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"><i data-lucide="folder" class="w-3.5 h-3.5"></i></a>` : `<span class="text-slate-300 text-xs">-</span>`;
+                     return `<tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors"><td class="px-5 py-3 font-mono text-slate-500 text-[10px] font-bold">${d.cctNo}</td><td class="px-5 py-3 font-bold text-slate-700 text-xs">${d.projectName}</td><td class="px-5 py-3 text-center">${driveHtml}</td><td class="px-5 py-3 text-right"><span class="px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border" style="color:${color}; background-color:${color}10; border-color:${color}20">${d.lastStatus}</span></td></tr>`;
+                }).join('');
+                lucide.createIcons();
+            }
+
+            function closeProjectModal() { document.getElementById('project-modal').classList.add('hidden'); }
+        </script>
+    </div>
+</body>
+</html>
